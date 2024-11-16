@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <link rel="stylesheet" href="/css/adminpanelstyle.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script> <!-- ApexCharts kutubxonasi -->
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>Admin Panel</h1>
+            <p>Nomzodlar va foydalanuvchilar ovoz statistikasi</p>
+        </div>
+    </header>
+    <main class="container">
+        <!-- Nomzodlar Bo'limi -->
+        <section id="candidates-section">
+            <h2>Nomzodlar</h2>
+            <div id="candidates-list" class="list candidates"></div>
+            <div id="candidatesChart" class="chart"></div>
+        </section>
+
+        <!-- Foydalanuvchilar Bo'limi -->
+        <section id="users-section">
+            <h2>Ovoz beruvchilar</h2>
+            <div id="users-list" class="list users"></div>
+            <div id="usersChart" class="chart"></div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 Admin Panel. Barcha huquqlar himoyalangan.</p>
+    </footer>
+
+    <script>
+        const token = localStorage.getItem('admin-token');
+    
+        if (!token) {
+        window.location.href = '/admin-login.html';
+    } else {
+        const decodedToken = JSON.parse(atob(token.split('.')[1]));
+        const expTime = decodedToken.exp * 1000;
+        const currentTime = Date.now();
+
+        if (currentTime > expTime) {
+            localStorage.removeItem('admin-token');
+            window.location.href = '/admin-login.html';
+        } else {
+            setTimeout(() => {
+                localStorage.removeItem('admin-token');
+                window.location.href = '/admin-login.html';
+            }, expTime - currentTime);
+        }
+    }
+        fetch('/admin-panel', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Nomzodlar ma'lumotlari
+            let candidatesHTML = '';
+            const candidatesLabels = [];
+            const candidatesVotes = [];
+    
+            data.candidates.forEach(candidate => {
+                candidatesHTML += `
+                    <div class="card">
+                        <span class="name">${candidate.nomzod}</span>
+                        <span class="votes">${candidate.ovoz_soni} ovoz</span>
+                    </div>`;
+                candidatesLabels.push(candidate.nomzod);
+                candidatesVotes.push(candidate.ovoz_soni);
+            });
+    
+            document.getElementById('candidates-list').innerHTML = candidatesHTML;
+    
+            // Nomzodlar uchun Bar Chart
+            const candidatesOptions = {
+                chart: {
+                    type: 'bar',
+                    height: 350,
+                    animations: {
+                        enabled: true,
+                        easing: 'easeinout',
+                        speed: 800,
+                    },
+                },
+                series: [{
+                    name: 'Ovozlar',
+                    data: candidatesVotes
+                }],
+                xaxis: {
+                    categories: candidatesLabels
+                },
+                colors: ['#00BFFF']
+            };
+            new ApexCharts(document.querySelector("#candidatesChart"), candidatesOptions).render();
+    
+            // Foydalanuvchilar ma'lumotlari
+            let usersHTML = '';
+            const userVotesCount = {};
+            const usersVoteColor = {};  // Store colors for users based on their votes
+    
+            data.users.forEach(user => {
+                const votedCandidateId = user.nomzod_id;
+                const candidate = data.candidates.find(c => c.id === votedCandidateId);
+    
+                // Handle users who haven't voted
+                if (!votedCandidateId) {
+                    usersHTML += `
+                        <div class="card not-voted">
+                            <span class="name">${user.first_name} ${user.last_name}</span>
+                            <span class="vote-for">Ovoz bermagan</span>
+                        </div>`;
+                    // No vote for this user, color for the donut chart slice will be gray
+                    userVotesCount['Ovoz bermagan'] = (userVotesCount['Ovoz bermagan'] || 0) + 1;
+                } else {
+                    usersHTML += `
+                        <div class="card voted-for-candidate">
+                            <span class="name">${user.first_name} ${user.last_name}</span>
+                            <span class="vote-for">Ovoz bergan: ${candidate.nomzod}</span>
+                        </div>`;
+                    userVotesCount[votedCandidateId] = (userVotesCount[votedCandidateId] || 0) + 1;
+                }
+            });
+    
+            document.getElementById('users-list').innerHTML = usersHTML;
+    
+            // Dynamic colors for the donut chart: green for voters, gray for those who didn't vote
+            const usersColors = Object.keys(userVotesCount).map(votedCandidateId => {
+                if (votedCandidateId === 'Ovoz bermagan') {
+                    return '#808080';  // Gray for users who didn't vote
+                } else {
+                    return data.candidates.find(candidate => candidate.id == votedCandidateId)
+                        ? '#32CD32'  // Green for voters
+                        : '#FF4500'; // Default color for others
+                }
+            });
+    
+            // Foydalanuvchilar uchun Donut Chart
+            const usersOptions = {
+                chart: {
+                    type: 'donut',
+                    height: 350,
+                    animations: {
+                        enabled: true,
+                        easing: 'easeinout',
+                        speed: 800,
+                    },
+                },
+                series: Object.values(userVotesCount),
+                labels: Object.keys(userVotesCount),
+                colors: usersColors,  // Apply dynamic colors
+                legend: {
+                    position: 'bottom',
+                },
+            };
+            new ApexCharts(document.querySelector("#usersChart"), usersOptions).render();
+        })
+        .catch(error => console.error('Error fetching admin data:', error));    
+    </script>
+    
+    <style>
+        .voted-for-candidate {
+            background-color: #32CD32;  /* Green background for users who voted for the candidate */
+            color: white;
+        }
+    
+        .not-voted {
+            background-color: #808080;  /* Gray background for users who did not vote */
+            color: white;
+        }
+    </style>
+    
+
+</body>
+</html>

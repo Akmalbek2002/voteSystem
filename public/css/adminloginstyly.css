@@ -1,0 +1,96 @@
+/* Basic Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Body styling */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f2f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Container for login form */
+.login-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+/* Styling the login box */
+.login-box {
+    background-color: #fff;
+    padding: 50px; /* Increase padding */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    width: 500px; /* Increased width */
+    text-align: center;
+}
+
+/* Form heading */
+h2 {
+    margin-bottom: 30px;
+    font-size: 30px; /* Increased font size */
+    color: #333;
+}
+
+/* Input group styling */
+.input-group {
+    margin-bottom: 25px; /* Increased margin */
+    text-align: left;
+}
+
+.input-group label {
+    font-size: 18px; /* Larger label font size */
+    color: #555;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 15px; /* Increased padding */
+    margin-top: 10px; /* Increased margin-top */
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 18px; /* Increased input font size */
+}
+
+/* Button styling */
+.login-btn {
+    width: 100%;
+    padding: 15px; /* Increased padding */
+    background-color: #4CAF50;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    font-size: 20px; /* Increased button font size */
+    cursor: pointer;
+}
+
+.login-btn:hover {
+    background-color: #45a049;
+}
+
+/* Small responsiveness for mobile screens */
+@media screen and (max-width: 480px) {
+    .login-box {
+        width: 90%;
+        padding: 40px; /* Reduced padding for small screens */
+    }
+
+    h2 {
+        font-size: 26px;
+    }
+
+    .input-group input {
+        font-size: 20px;
+    }
+
+    .login-btn {
+        font-size: 22px;
+    }
+}

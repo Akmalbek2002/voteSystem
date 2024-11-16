@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ovoz Berish</title>
+    <link rel="stylesheet" href="votestyle.css">
+    <script type="text/javascript">
+        function loadref(time) {
+            setTimeout("location.reload(true);", time);
+        }
+    </script>
+</head>
+<body>
+    <div>
+        <p style="font-size: 25px; color: black;">Prezidentlik sayloviga xush kelibsiz!!!</p>
+    </div>
+    <div id="voteContainer">
+        <div id="votingSection">
+            <h1>Nomzodlarni tanlang</h1>
+            <form id="voteForm">
+                <label for="candidate">Nomzod tanlang:</label>
+                <select id="candidate">
+                    <!-- Nomzodlar dynomik tarzda yuklanadi -->
+                </select>
+                <br><br>
+                
+                <!-- Tasdiqlash kodi kiritish maydoni -->
+                <label for="verificationCode" style="display: none;">Tasdiqlash kodi:</label>
+                <input type="text" id="verificationCode" style="display: none;" placeholder="Tasdiqlash kodini kiriting">
+                
+                <button type="submit">Tasdiqlash</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Nomzodlar ro‘yxatini yuklash
+        async function loadCandidates() {
+            try {
+                const response = await fetch('http://localhost:3000/candidates');
+                const candidates = await response.json();
+                
+                const candidateSelect = document.getElementById('candidate');
+                candidates.forEach(candidate => {
+                    const option = document.createElement('option');
+                    option.value = candidate.id;
+                    option.textContent = candidate.nomzod;
+                    candidateSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Nomzodlarni yuklashda xatolik:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadCandidates);
+
+        // Tasdiqlash va ovoz berish
+        document.getElementById('voteForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const candidateId = document.getElementById('candidate').value;
+            const verificationCodeInput = document.getElementById('verificationCode');
+            
+            if (!verificationCodeInput.style.display || verificationCodeInput.style.display === 'none') {
+                const response = await fetch('http://localhost:3000/select-candidate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ candidateId })
+                });
+
+                const data = await response.json();
+                alert(data.message);
+
+                if (data.message.includes('Tasdiqlash kodi yuborildi')) {
+                    verificationCodeInput.style.display = 'inline';
+                    document.querySelector('label[for="verificationCode"]').style.display = 'inline';
+                }
+            } else {
+                const code = verificationCodeInput.value;
+                const verifyResponse = await fetch('http://localhost:3000/verify-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code })
+                });
+
+                const verifyData = await verifyResponse.json();
+                alert(verifyData.message);
+                document.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(function() {
+                        location.reload();  // Reload the page after the page has fully loaded
+                    }, 4000);  // 4 seconds delay
+                });
+            }
+        });
+    </script>
+</body>
+</html>

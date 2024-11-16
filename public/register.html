@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ro'yxatdan o'tish</title>
+    <link rel="stylesheet" href="registerstyle.css">
+</head>
+<body>
+    <div class="form-container">
+        <h1>Ro'yxatdan O'tish</h1>
+        <form id="registerForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="firstName">Ism:</label>
+                    <input type="text" id="firstName" required>
+                </div>
+                <div class="form-group">
+                    <label for="lastName">Familiya:</label>
+                    <input type="text" id="lastName" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="passportNumber">Passport Raqami:</label>
+                    <input type="text" id="passportNumber" required>
+                </div>
+                <div class="form-group">
+                    <label for="phoneNumber">Telefon raqami:</label>
+                    <input type="text" id="phoneNumber" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Parol:</label>
+                    <input type="password" id="password" required>
+                </div>
+            </div>
+
+            <button type="submit">Ro'yxatdan o'tish</button>
+        </form>
+        
+        <p>Tizimda ro'yxatdan o'tganmisiz?</p>
+        <button onclick="window.location.href='login.html';">Kirish</button>
+    </div>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const passportNumber = document.getElementById('passportNumber').value;
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            const response = await fetch('http://localhost:3000/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ firstName, lastName, passportNumber, phoneNumber, email, password })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert("Ro'yxatdan o'tdingiz! Endi tizimga kirishingiz mumkin.");
+                window.location.href = 'login.html';
+            } else {
+                alert("Ro'yxatdan o'tishda xatolik yuz berdi: " + data.message);
+            }
+        });
+    </script>
+</body>
+</html>

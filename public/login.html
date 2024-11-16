@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tizimga Kirish</title>
+    <link rel="stylesheet" href="loginstyle.css">
+</head>
+<body>
+    <div id="loginContainer">
+        <h1>Tizimga Kirish</h1>
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" required placeholder="Emailingizni kiriting">
+            </div>
+
+            <div class="input-group">
+                <label for="password">Parol:</label>
+                <input type="password" id="password" required placeholder="Parolingizni kiriting">
+            </div>
+
+            <button type="submit" class="btn-submit">Kirish</button>
+            <p>Yangi foydalanuvchi? <a href="register.html">Ro'yxatdan o'tish</a></p>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            const response = await fetch('http://localhost:3000/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+            if (data.redirectTo) {
+                window.location.href = data.redirectTo;
+            } else {
+                alert(data.message);
+            }
+        });
+    </script>
+</body>
+</html>
