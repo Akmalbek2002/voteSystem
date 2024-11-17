@@ -129,37 +129,6 @@
             });
     
             document.getElementById('users-list').innerHTML = usersHTML;
-    
-            // Dynamic colors for the donut chart: green for voters, gray for those who didn't vote
-            const usersColors = Object.keys(userVotesCount).map(votedCandidateId => {
-                if (votedCandidateId === 'Ovoz bermagan') {
-                    return '#808080';  // Gray for users who didn't vote
-                } else {
-                    return data.candidates.find(candidate => candidate.id == votedCandidateId)
-                        ? '#32CD32'  // Green for voters
-                        : '#FF4500'; // Default color for others
-                }
-            });
-    
-            // Foydalanuvchilar uchun Donut Chart
-            const usersOptions = {
-                chart: {
-                    type: 'donut',
-                    height: 350,
-                    animations: {
-                        enabled: true,
-                        easing: 'easeinout',
-                        speed: 800,
-                    },
-                },
-                series: Object.values(userVotesCount),
-                labels: Object.keys(userVotesCount),
-                colors: usersColors,  // Apply dynamic colors
-                legend: {
-                    position: 'bottom',
-                },
-            };
-            new ApexCharts(document.querySelector("#usersChart"), usersOptions).render();
         })
         .catch(error => console.error('Error fetching admin data:', error));    
     </script>

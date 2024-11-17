@@ -5,9 +5,16 @@ const bodyParser = require('body-parser');
 const { Client } = require('pg');
 const path = require('path');
 const bcrypt = require('bcrypt');
+const fs = require('fs');
+const morgan = require('morgan');
 const app = express();
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
+const cors = require('cors');
+
+const { Pool } = require('pg');
+app.use(cors()); // CORSni yoqish
+
 const port = 3000;
 
 // PostgreSQL bazasi ulanishi
@@ -20,14 +27,56 @@ const client = new Client({
 });
 client.connect();
 
+// Sertifikatlar (OpenSSL bilan yaratilgan sertifikatlar)
+// const options = {
+//     key: fs.readFileSync('D:/Ovoz/Ovoz/key.pem'), // Maxfiy kalit
+//     cert: fs.readFileSync('D:/Ovoz/Ovoz/cert.crt') // Sertifikat
+// };
+
+// Wifi orqali ulanish uchun baza
+// const pool = new Pool({
+//     user: 'postgres',
+//     host: 'localhost',
+//     database: 'ovozDb',
+//     password: 'akmal625',
+//     port: 5432,
+// });
+// pool.connect();
+
 // Body parser
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.urlencoded({ extended: true })); // URL orqali kodlangan ma'lumotlarni qo'llash
+app.use(express.json()); // JSON formatidagi kiruvchi ma'lumotlarni qo'llab-quvvatlash
 
 // Foydalanuvchi va ovozlar bo'yicha o'zgaruvchilar
 let userEmail = '';
 let selectedCandidate = '';
 let verificationCode = '';
+
+// Logs papkasini yaratish
+if (!fs.existsSync('./logs')) {
+    fs.mkdirSync('./logs');
+}
+
+// Loglar uchun streamlarni sozlash
+const combinedLogStream = fs.createWriteStream(path.join(__dirname, 'logs', 'combined.log'), { flags: 'a' });
+const errorLogStream = fs.createWriteStream(path.join(__dirname, 'logs', 'error.log'), { flags: 'a' });
+
+// Morgan middleware
+app.use(morgan('combined', { stream: combinedLogStream })); // Har bir so‘rovni combined.log ga yozish
+app.use(morgan('common', {
+    skip: (req, res) => res.statusCode < 400, // Faqat 4xx va 5xx xatolarini yozish
+    stream: errorLogStream
+}));
+
+// Xatolarni ushlash middleware
+app.use((err, req, res, next) => {
+    const errorDetails = `${new Date().toISOString()} - ${req.method} ${req.url} - ${err.stack}\n`;
+    errorLogStream.write(errorDetails); // error.log ga yozish
+    console.error(errorDetails); // Konsolga chiqarish
+    res.status(500).send('Serverda xatolik yuz berdi.');
+});
 
 // Route to serve the admin login page
 app.get('/admin-login', (req, res) => {
@@ -229,7 +278,7 @@ app.post('/admin/login', [
         
         if (adminResult.rows.length > 0) {
             const admin = adminResult.rows[0];
-            const token = jwt.sign({ id: admin.id, email: admin.email }, JWT_SECRET_KEY, { expiresIn: '30s' });
+            const token = jwt.sign({ id: admin.id, email: admin.email }, JWT_SECRET_KEY, { expiresIn: '1h' });
             res.json({ message: 'Kirish muvaffaqiyatli!', token });
         } else {
             res.status(400).send('Email yoki parol noto\'g\'ri.');
@@ -282,3 +331,4 @@ checkAndInsertAdmin();
 app.listen(port, () => {
     console.log(`Server ishlayapti: http://localhost:${port}`);
 });
+
