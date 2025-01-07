@@ -7,75 +7,87 @@
     <link rel="stylesheet" href="registerstyle.css">
 </head>
 <body>
-    <div class="form-container">
-        <h1>Ro'yxatdan O'tish</h1>
-        <form id="registerForm">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="firstName">Ism:</label>
-                    <input type="text" id="firstName" required>
-                </div>
-                <div class="form-group">
-                    <label for="lastName">Familiya:</label>
-                    <input type="text" id="lastName" required>
-                </div>
-            </div>
+    <h1>Ro'yxatdan O'tish</h1>
+    <form id="registerForm" action="http://192.168.155.221:3000/register" method="POST">
+        <label for="firstName">Ism:</label>
+        <input type="text" id="firstName" name="firstName" required>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="passportNumber">Passport Raqami:</label>
-                    <input type="text" id="passportNumber" required>
-                </div>
-                <div class="form-group">
-                    <label for="phoneNumber">Telefon raqami:</label>
-                    <input type="text" id="phoneNumber" required>
-                </div>
-            </div>
+        <label for="lastName">Familiya:</label>
+        <input type="text" id="lastName" name="lastName" required>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="email">Email:</label>
-                    <input type="email" id="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Parol:</label>
-                    <input type="password" id="password" required>
-                </div>
-            </div>
+        <label for="passportNumber">Passport Raqami:</label>
+        <input type="text" id="passportNumber" name="passportNumber" required>
 
-            <button type="submit">Ro'yxatdan o'tish</button>
-        </form>
-        
-        <p>Tizimda ro'yxatdan o'tganmisiz?</p>
-        <button onclick="window.location.href='login.html';">Kirish</button>
-    </div>
+        <label for="phoneNumber">Telefon Raqami:</label>
+        <input type="text" id="phoneNumber" name="phoneNumber" required>
+
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required>
+
+        <input type="password" id="password" name="password" minlength="8" required>
+        <span id="passwordError" style="color: red; display: none;">Parol kamida 8 ta belgidan iborat bo'lishi kerak.</span>
+
+        <!-- CAPTCHA -->
+        <div id="captchaContainer">
+            <div id="captchaText"></div>
+            <button type="button" id="refreshCaptcha">Yangi CAPTCHA</button>
+            <input type="text" id="captchaInput" name="captcha" placeholder="CAPTCHA ni kiriting" required>
+        </div>
+
+        <button type="submit">Ro'yhatdan o'tish</button>
+        <p>Siz allaqachon ro'yhatdan o'tganmisiz?<a href="login.html">Kirish</a></p>
+    </form>
 
     <script>
-        document.getElementById('registerForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            const passportNumber = document.getElementById('passportNumber').value;
-            const phoneNumber = document.getElementById('phoneNumber').value;
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+        const captchaText = document.getElementById('captchaText');
+        const captchaInput = document.getElementById('captchaInput');
+        const refreshCaptcha = document.getElementById('refreshCaptcha');
 
-            const response = await fetch('http://localhost:3000/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ firstName, lastName, passportNumber, phoneNumber, email, password })
-            });
+        let currentCaptcha;
 
-            const data = await response.json();
-            if (data.success) {
-                alert("Ro'yxatdan o'tdingiz! Endi tizimga kirishingiz mumkin.");
-                window.location.href = 'login.html';
-            } else {
-                alert("Ro'yxatdan o'tishda xatolik yuz berdi: " + data.message);
+        function generateCaptcha() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            currentCaptcha = '';
+            for (let i = 0; i < 6; i++) {
+                currentCaptcha += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+
+            captchaText.textContent = currentCaptcha;
+
+            // Qiyshaytirilgan va stil berilgan CAPTCHA
+            captchaText.style.transform = `rotate(${Math.random() * 20 - 10}deg)`;
+            captchaText.style.fontSize = '24px';
+            captchaText.style.letterSpacing = '3px';
+        }
+
+        refreshCaptcha.addEventListener('click', generateCaptcha);
+
+        document.getElementById('registerForm').addEventListener('submit', function (event) {
+            if (captchaInput.value !== currentCaptcha) {
+                event.preventDefault(); // Formani jo‘natishni to‘xtatish
+                alert('CAPTCHA noto‘g‘ri! Iltimos, qayta urinib ko‘ring.');
+                generateCaptcha();
+                captchaInput.value = ''; // Javobni bo‘shatish
             }
         });
+
+        // Sahifa yuklanganda CAPTCHA-ni yaratish
+        generateCaptcha();
+        document.getElementById('registerForm').addEventListener('submit', function (event) {
+        const passwordInput = document.getElementById('password');
+        const passwordError = document.getElementById('passwordError');
+
+        // Parol uzunligini tekshirish
+        if (passwordInput.value.length < 8) {
+            event.preventDefault(); // Formani jo‘natishni to‘xtatish
+            passwordError.style.display = 'block';
+            return;
+        } else {
+            passwordError.style.display = 'none';
+        }
+    });
+        
+
     </script>
 </body>
 </html>

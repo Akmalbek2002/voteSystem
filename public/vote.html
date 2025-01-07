@@ -38,7 +38,7 @@
         // Nomzodlar ro‘yxatini yuklash
         async function loadCandidates() {
             try {
-                const response = await fetch('http://localhost:3000/candidates');
+                const response = await fetch('http://192.168.155.221:3000/candidates');
                 const candidates = await response.json();
                 
                 const candidateSelect = document.getElementById('candidate');
@@ -63,7 +63,7 @@
             const verificationCodeInput = document.getElementById('verificationCode');
             
             if (!verificationCodeInput.style.display || verificationCodeInput.style.display === 'none') {
-                const response = await fetch('http://localhost:3000/select-candidate', {
+                const response = await fetch('http://192.168.155.221:3000/select-candidate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -80,7 +80,7 @@
                 }
             } else {
                 const code = verificationCodeInput.value;
-                const verifyResponse = await fetch('http://localhost:3000/verify-code', {
+                const verifyResponse = await fetch('http://192.168.155.221:3000/verify-code', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
