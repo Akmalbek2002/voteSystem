@@ -189,6 +189,13 @@ const pool = new Pool({
 });
 pool.connect();
 
+app.use(session({
+    secret: 't2153672vx27c3748237c437y43', // Sessiyani himoyalash uchun maxfiy kalit
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false, maxAge: 600000 } // 10 daqiqa sessiya muddati
+}));
+
 // Body parser
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -258,34 +265,31 @@ const checkAndInsertAdmin = async () => {
     }
 };
 
-// Email yuborish funksiyasi
-const sendVerificationEmail = (email) => {
+// Tasdiqlash kodini email orqali yuborish funksiyasi
+const sendVerificationEmail = async (email, verificationCode) => {
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-            user: 'axrorovakmal4@gmail.com',
-            pass: 'ydpjyxvlxmlbobki'
+            user: 'axrorovakmal4@gmail.com', // Gmail email manzili
+            pass: 'ydpjyxvlxmlbobki' // App password (Google 2FA orqali yaratilgan maxsus parol)
         }
     });
-
-    verificationCode = crypto.randomInt(100000, 999999).toString();  // Tasdiqlash kodi
 
     const mailOptions = {
         from: 'axrorovakmal4@gmail.com',
         to: email,
         subject: 'Ovoz berish uchun tasdiqlash kodi',
-        text: `Sizga 6 raqamli tasdiqlash kodi: ${verificationCode}`
+        text: `Sizning 6 raqamli tasdiqlash kodingiz: ${verificationCode}\n\nTasdiqlash kodi 60 soniya ichida amal qiladi.`
     };
 
     transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
             console.log('Email yuborishda xatolik:', error);
         } else {
-            console.log('Email yuborildi:', info.response);
+            console.log(`Tasdiqlash kodi ${email} manziliga yuborildi:`, info.response);
         }
     });
 };
-
 // Nomzodlar ro‘yxatini olish va ovozlarini ko'rsatish
 app.get('/candidates', async (req, res) => {
     try {
@@ -299,46 +303,60 @@ app.get('/candidates', async (req, res) => {
 
 
 
-// Foydalanuvchi login qilish va ma'lumotlar bazasida tekshirish
-app.post('/login', async (req, res) => {
-    const { email, password } = req.body;
-
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-
-    if (result.rows.length > 0) {
-        const user = result.rows[0];
-        const passwordMatch = await bcrypt.compare(password, user.password);
-
-        if (passwordMatch) {
-            userEmail = email;
-            res.send({ message: 'Kirish muvaffaqiyatli!', redirectTo: '/vote.html' });
-        } else {
-            res.status(400).send('Parol noto\'g\'ri.');
-        }
-    } else {
-        res.status(400).send('Email noto\'g\'ri.');
-    }
-});
 
 
+function encryptAESKeyWithRSA(publicKey) {
+    // 1. AES kalitini yaratish
+    const aesKey = crypto.randomBytes(32); // AES-256 uchun 32 baytli kalit
+    const iv = crypto.randomBytes(16); // AES CBC uchun IV (16 bayt)
 
 
+    // 2. AES kalitini RSA ochiq kaliti bilan shifrlash
+    const encryptedAESKey = crypto.publicEncrypt(
+        {
+            key: publicKey, // RSA ochiq kaliti
+            padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, // OAEP padding
+            oaepHash: 'sha256', // Hash algoritmi
+        },
+        aesKey // AES kaliti (Buffer ko'rinishida)
+    );
+
+    return {
+        encryptedAESKey, // RSA bilan shifrlangan AES kaliti
+        aesKey, // Original AES kaliti (shifrlash uchun foydalaniladi)
+        iv // Initialization vector (IV)
+    };
+}
+
+const { encryptedAESKey, aesKey, iv } = encryptAESKeyWithRSA(publicKey);
 
 
 app.post('/register', async (req, res) => {
     try {
+
         const userData = req.body;
+// RSA yordamida AES kalitini deshifrlash
+const decryptedAESKey = crypto.privateDecrypt(
+    {
+        key: privateKey, // Serverning yopiq kaliti
+        padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, // Padding turi
+        oaepHash: 'sha256', // Hash funksiyasi
+    },
+    encryptedAESKey // Shifrlangan AES kaliti (Buffer turida)
+);
 
-        console.log('Keldi foydalanuvchi malumotlari:', userData);
+console.log('Deshifrlangan AES kaliti:', decryptedAESKey.toString('hex')); // Hex formatida ko'rsatish
 
-        // Public key mavjudligini tekshirish
-        if (!publicKey) {
-            return res.status(400).send({
-                success: false,
-                message: 'Public key mavjud emas.',
-            });
-        }
+// AES yordamida ma'lumotni deshifrlash
+const decipher = crypto.createDecipheriv(
+    'aes-256-cbc', // AES algoritmi
+    decryptedAESKey, // Deshifrlangan AES kaliti
+    iv // IV (initialization vector) bo'lishi kerak
+);
 
+// JSON formatiga o'girish
+console.log('Deshifrlangan ma\'lumot:', userData);
+        
         // Bazada foydalanuvchini tekshirish (email, passportNumber, phoneNumber)
         const checkQuery = `
             SELECT * FROM users 
@@ -363,17 +381,6 @@ app.post('/register', async (req, res) => {
         // Parolni hash qilish
         const hashedPassword = await bcrypt.hash(userData.password, 10); // 10 - salt rounds
 
-        // RSA yordamida ma'lumotni shifrlash
-        const encryptedData = crypto.publicEncrypt(
-            {
-                key: publicKey,
-                padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-                oaepHash: 'sha256',
-            },
-            Buffer.from(JSON.stringify(userData))
-        );
-
-        console.log('Shifrlangan malumot:', encryptedData.toString('base64'));
 
         // Ma'lumotni bazaga saqlash
         const insertQuery = `
@@ -404,11 +411,86 @@ app.post('/register', async (req, res) => {
 });
 
 
+// Foydalanuvchi login qilish va sessiyaga emailni yozish
+app.post('/login', async (req, res) => {
+    try {
+        // // RSA yordamida AES kalitini deshifrlash
+        // const decryptedAESKey = crypto.privateDecrypt(
+        //     {
+        //         key: privateKey,
+        //         padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+        //         oaepHash: 'sha256',
+        //     },
+        //     encryptedAESKey
+        // );
+
+        const { email, password } = req.body;
+
+        // AES yordamida ma'lumotni deshifrlash
+        //const decipher = crypto.createDecipheriv('aes-256-cbc', decryptedAESKey, iv);
+        // let decryptedData = decipher.update(password, 'hex', 'utf8');
+        // decryptedData += decipher.final('utf8');
+
+        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+
+        if (result.rows.length > 0) {
+            const user = result.rows[0];
+            const passwordMatch = await bcrypt.compare(password, user.password);
+
+            if (passwordMatch) {
+                req.session.userEmail = email; // Sessiyada foydalanuvchi emailini saqlash
+                res.send({ message: 'Kirish muvaffaqiyatli!', redirectTo: '/vote.html' });
+            } else {
+                res.status(400).send('Parol noto\'g\'ri.');
+            }
+        } else {
+            res.status(400).send('Email noto\'g\'ri.');
+        }
+    } catch (error) {
+        console.error('Login jarayonida xatolik:', error);
+        res.status(500).send('Xatolik yuz berdi.');
+    }
+});
 
 
+// // Nomzodni tanlang va tasdiqlash kodini yuboring
+// app.post('/select-candidate', async (req, res) => {
+//     const { candidateId } = req.body;
+
+//     if (!userEmail) {
+//         return res.status(400).send({ message: 'Foydalanuvchi autentifikatsiya qilinmagan.' });
+//     }
+
+//     try {
+//         // Tekshirish uchun foydalanuvchini bazadan topish
+//         const userResult = await pool.query('SELECT ovoz_status FROM users WHERE email = $1', [userEmail]);
+//         const user = userResult.rows[0];
+
+//         // Foydalanuvchi ovoz berganligini tekshirish
+//         if (user.ovoz_status) {
+//             return res.status(400).send({ message: 'Siz allaqachon ovoz bergansiz.' });
+//         }
+
+//         // Nomzodni tanlash va tasdiqlash kodini yuborish
+//         selectedCandidate = candidateId;
+//         console.log("Tanlangan nomzod ID:", selectedCandidate);
+
+//         sendVerificationEmail(userEmail);
+//         res.send({ message: 'Nomzod tanlandi. Tasdiqlash kodi yuborildi.' });
+//     } catch (err) {
+//         console.error('Nomzod tanlashda xatolik:', err);
+//         res.status(500).send({ message: 'Xatolik yuz berdi.' });
+//     }
+// });
+
+// Tasdiqlash kodini generatsiya qilish funksiyasi
+function generateVerificationCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString(); // 6 xonali tasdiqlash kodi
+}
 
 // Nomzodni tanlang va tasdiqlash kodini yuboring
 app.post('/select-candidate', async (req, res) => {
+    const userEmail = req.session.userEmail; // Sessiyadan emailni olish
     const { candidateId } = req.body;
 
     if (!userEmail) {
@@ -420,16 +502,32 @@ app.post('/select-candidate', async (req, res) => {
         const userResult = await pool.query('SELECT ovoz_status FROM users WHERE email = $1', [userEmail]);
         const user = userResult.rows[0];
 
+        if (!user) {
+            return res.status(404).send({ message: 'Foydalanuvchi topilmadi.' });
+        }
+
         // Foydalanuvchi ovoz berganligini tekshirish
         if (user.ovoz_status) {
             return res.status(400).send({ message: 'Siz allaqachon ovoz bergansiz.' });
         }
 
-        // Nomzodni tanlash va tasdiqlash kodini yuborish
+        // Tasdiqlash kodi yaratish va bazaga yozish
+        const verificationCode = generateVerificationCode();
+        const currentTime = new Date(); // Hozirgi vaqt
+
+        // Tasdiqlash kodini bazaga yozish
+        await pool.query(
+            'UPDATE users SET verification_code = $1, code_generated_time = $2 WHERE email = $3',
+            [verificationCode, currentTime, userEmail]
+        );
+
+        // Nomzodni tanlash
         selectedCandidate = candidateId;
         console.log("Tanlangan nomzod ID:", selectedCandidate);
+        console.log("Tasdiqlash kodi:", verificationCode);
 
-        sendVerificationEmail(userEmail);
+        // Tasdiqlash kodini foydalanuvchiga email orqali yuborish
+        sendVerificationEmail(userEmail, verificationCode);
         res.send({ message: 'Nomzod tanlandi. Tasdiqlash kodi yuborildi.' });
     } catch (err) {
         console.error('Nomzod tanlashda xatolik:', err);
@@ -439,29 +537,46 @@ app.post('/select-candidate', async (req, res) => {
 
 // Tasdiqlash kodini tekshirish va ovoz berish
 app.post('/verify-code', async (req, res) => {
+    const userEmail = req.session.userEmail; // Sessiyadan emailni olish
     const { code } = req.body;
 
+    if (!userEmail) {
+        return res.status(400).send({ message: 'Foydalanuvchi autentifikatsiya qilinmagan.' });
+    }
+
     try {
-        // Tekshirish uchun foydalanuvchini bazadan topish
-        const userResult = await pool.query('SELECT ovoz_status FROM users WHERE email = $1', [userEmail]);
+        // Foydalanuvchi ma'lumotlarini bazadan olish
+        const userResult = await pool.query('SELECT ovoz_status, verification_code, code_generated_time FROM users WHERE email = $1', [userEmail]);
         const user = userResult.rows[0];
+
+        if (!user) {
+            return res.status(404).send({ message: 'Foydalanuvchi topilmadi.' });
+        }
 
         // Foydalanuvchi ovoz berganligini tekshirish
         if (user.ovoz_status) {
             return res.status(400).send({ message: 'Siz allaqachon ovoz bergansiz.' });
         }
 
+        // Tasdiqlash kodi muddati tugaganligini tekshirish
+        const currentTime = new Date().getTime();
+        const codeGeneratedTime = new Date(user.code_generated_time).getTime();
+        const timeDifference = (currentTime - codeGeneratedTime) / 1000; // Sekundlarda farq
+
+        if (timeDifference > 60) {
+            return res.status(400).send({ message: 'Tasdiqlash kodining amal qilish muddati tugadi. Iltimos, qayta tasdiqlash kodini yuboring.' });
+        }
+
         // Tasdiqlash kodi tekshirish
-        if (code === verificationCode) {
+        if (code === user.verification_code) {
             // Ovozni nomzodga qo'shish
             await pool.query('UPDATE votes SET ovoz_soni = ovoz_soni + 1 WHERE id = $1', [selectedCandidate]);
 
             // Foydalanuvchi ovoz berganligini yangilash va nomzodning ID sini saqlash
-        await pool.query(
-            'UPDATE users SET ovoz_status = true, nomzod_id = $1 WHERE email = $2',
-            [selectedCandidate, userEmail]
-        );
-
+            await pool.query(
+                'UPDATE users SET ovoz_status = true, nomzod_id = $1 WHERE email = $2',
+                [selectedCandidate, userEmail]
+            );
 
             res.send({ message: 'Muvaffaqiyatli ovoz berdingiz!' });
         } else {

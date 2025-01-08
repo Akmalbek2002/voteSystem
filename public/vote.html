@@ -5,11 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ovoz Berish</title>
     <link rel="stylesheet" href="votestyle.css">
-    <script type="text/javascript">
-        function loadref(time) {
-            setTimeout("location.reload(true);", time);
-        }
-    </script>
 </head>
 <body>
     <div>
@@ -21,7 +16,7 @@
             <form id="voteForm">
                 <label for="candidate">Nomzod tanlang:</label>
                 <select id="candidate">
-                    <!-- Nomzodlar dynomik tarzda yuklanadi -->
+                    <!-- Nomzodlar dinamik tarzda yuklanadi -->
                 </select>
                 <br><br>
                 
@@ -29,7 +24,9 @@
                 <label for="verificationCode" style="display: none;">Tasdiqlash kodi:</label>
                 <input type="text" id="verificationCode" style="display: none;" placeholder="Tasdiqlash kodini kiriting">
                 
-                <button type="submit">Tasdiqlash</button>
+                <p id="timer" style="color: red; display: none;">Tasdiqlash kodi amal qilish muddati: <span id="seconds">60</span> soniya</p>
+                
+                <button type="submit" id="submitBtn">Tasdiqlash</button>
             </form>
         </div>
     </div>
@@ -38,7 +35,12 @@
         // Nomzodlar ro‘yxatini yuklash
         async function loadCandidates() {
             try {
-                const response = await fetch('http://192.168.155.221:3000/candidates');
+                const response = await fetch('http://192.168.155.221:3000/candidates', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
                 const candidates = await response.json();
                 
                 const candidateSelect = document.getElementById('candidate');
@@ -61,7 +63,10 @@
 
             const candidateId = document.getElementById('candidate').value;
             const verificationCodeInput = document.getElementById('verificationCode');
-            
+            const timerElement = document.getElementById('timer');
+            const secondsElement = document.getElementById('seconds');
+            const submitBtn = document.getElementById('submitBtn');
+
             if (!verificationCodeInput.style.display || verificationCodeInput.style.display === 'none') {
                 const response = await fetch('http://192.168.155.221:3000/select-candidate', {
                     method: 'POST',
@@ -77,9 +82,35 @@
                 if (data.message.includes('Tasdiqlash kodi yuborildi')) {
                     verificationCodeInput.style.display = 'inline';
                     document.querySelector('label[for="verificationCode"]').style.display = 'inline';
+                    timerElement.style.display = 'block';
+
+                    // Disable submit button and set countdown
+                    // submitBtn.disabled = true;
+                    let timeLeft = 60;
+                    const timer = setInterval(function() {
+                        timeLeft -= 1;
+                        secondsElement.textContent = timeLeft;
+
+                        if (timeLeft <= 0) {
+                            clearInterval(timer);
+                            alert("Tasdiqlash kodi muddati tugadi. Iltimos, qaytadan kod so'rang.");
+                            location.reload(); // Sahifani yangilash
+                        }
+                    }, 1000);
+
+                    setTimeout(() => {
+                        submitBtn.disabled = false; // 60 soniyadan keyin yana formani jo'natishga ruxsat
+                    }, 60000); // 60 sekund kutish
                 }
             } else {
                 const code = verificationCodeInput.value;
+
+                // Agar tasdiqlash kodi kiritilmagan bo'lsa
+                if (!code) {
+                    alert('Tasdiqlash kodini kiriting!');
+                    return;
+                }
+
                 const verifyResponse = await fetch('http://192.168.155.221:3000/verify-code', {
                     method: 'POST',
                     headers: {
@@ -90,11 +121,10 @@
 
                 const verifyData = await verifyResponse.json();
                 alert(verifyData.message);
-                document.addEventListener('DOMContentLoaded', function() {
-                    setTimeout(function() {
-                        location.reload();  // Reload the page after the page has fully loaded
-                    }, 4000);  // 4 seconds delay
-                });
+
+                if (verifyData.message.includes('Muvaffaqiyatli ovoz berdingiz')) {
+                    setTimeout(() => location.reload(), 4000); // 4 soniyadan keyin sahifani qayta yuklash
+                }
             }
         });
     </script>
